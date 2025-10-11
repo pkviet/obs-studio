@@ -287,10 +287,13 @@ mfxStatus QSV_Encoder_Internal::InitParams(qsv_param_t *pParams, enum qsv_codec 
 	memset(&m_co2, 0, sizeof(mfxExtCodingOption2));
 	m_co2.Header.BufferId = MFX_EXTBUFF_CODING_OPTION2;
 	m_co2.Header.BufferSz = sizeof(m_co2);
-	if (pParams->bRepeatHeaders)
+	if (pParams->bRepeatHeaders) {
 		m_co2.RepeatPPS = MFX_CODINGOPTION_ON;
-	else
+		if (codec == QSV_CODEC_AVC)
+			m_mfxEncParams.mfx.IdrInterval = 0;
+	} else {
 		m_co2.RepeatPPS = MFX_CODINGOPTION_OFF;
+	}
 
 	if (pParams->nbFrames > 1)
 		m_co2.BRefType = MFX_B_REF_PYRAMID;
