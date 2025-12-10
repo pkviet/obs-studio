@@ -19,7 +19,7 @@ bool isSourceUnassigned(obs_source_t *source)
 	uint32_t mixes = (obs_source_get_audio_mixers(source) & ((1 << MAX_AUDIO_MIXES) - 1));
 	obs_monitoring_type mt = obs_source_get_monitoring_type(source);
 
-	return mixes == 0 && mt != OBS_MONITORING_TYPE_MONITOR_ONLY;
+	return mixes == 0;
 }
 
 void showUnassignedWarning(const char *name)
@@ -100,9 +100,8 @@ VolumeControl::VolumeControl(obs_source_t *source, QWidget *parent, bool vertica
 	volMeter = new VolumeMeter(this, source);
 
 	bool muted = obs_source_muted(source);
-	bool unassigned = isSourceUnassigned(source);
 
-	volMeter->setMuted(muted || unassigned);
+	volMeter->setMuted(muted);
 
 	setLayoutVertical(vertical);
 	setName(sourceName);
@@ -131,8 +130,8 @@ VolumeControl::VolumeControl(obs_source_t *source, QWidget *parent, bool vertica
 	connect(nameButton, &VolumeName::clicked, this, [&]() { showVolumeControlMenu(); });
 
 	connect(slider, &VolumeSlider::valueChanged, this, &VolumeControl::sliderChanged);
-	connect(muteButton, &QPushButton::clicked, this, &VolumeControl::handleMuteButton);
-	connect(monitorButton, &QPushButton::clicked, this, &VolumeControl::handleMonitorButton);
+	connect(muteButton, &QPushButton::clicked, this, &VolumeControl::setMuted);
+	connect(monitorButton, &QPushButton::clicked, this, &VolumeControl::setMonitoring);
 
 	OBSBasic *main = OBSBasic::Get();
 	if (main) {
@@ -608,7 +607,6 @@ void VolumeControl::setMuted(bool mute)
 	obs_source_set_muted(source, mute);
 
 	if (!mute && unassigned) {
-		// muteButton->setChecked(true);
 		/* Show notice about the source no being assigned to any tracks */
 		bool has_shown_warning =
 			config_get_bool(App()->GetUserConfig(), "General", "WarnedAboutUnassignedSources");
@@ -616,7 +614,6 @@ void VolumeControl::setMuted(bool mute)
 			showUnassignedWarning(obs_source_get_name(source));
 		}
 	}
-
 	auto undo_redo = [](const std::string &uuid, bool val) {
 		OBSSourceAutoRelease source = obs_get_source_by_uuid(uuid.c_str());
 		obs_source_set_muted(source, val);
@@ -629,13 +626,13 @@ void VolumeControl::setMuted(bool mute)
 					   std::bind(undo_redo, std::placeholders::_1, mute), uuid, uuid);
 }
 
-void VolumeControl::setMonitoring(obs_monitoring_type type)
+void VolumeControl::setMonitoring(bool enableMonitoring)
 {
 	OBSSource source = OBSGetStrongRef(weakSource());
 	if (!source) {
 		return;
 	}
-
+	obs_monitoring_type type = enableMonitoring ? OBS_MONITORING_TYPE_MONITOR : OBS_MONITORING_TYPE_NONE;
 	obs_monitoring_type prevMonitoringType = obs_source_get_monitoring_type(source);
 	obs_source_set_monitoring_type(source, type);
 
@@ -671,6 +668,7 @@ void VolumeControl::updateMixerState()
 
 	bool muted = obs_source_muted(source);
 	bool unassigned = isSourceUnassigned(source);
+
 	obs_monitoring_type monitoringType = obs_source_get_monitoring_type(source);
 
 	bool isActive = obs_source_active(source) && obs_source_audio_active(source);
@@ -682,11 +680,11 @@ void VolumeControl::updateMixerState()
 	QSignalBlocker blockMute(muteButton);
 	QSignalBlocker blockMonitor(monitorButton);
 
-	bool showAsMuted = muted || monitoringType == OBS_MONITORING_TYPE_MONITOR_ONLY;
+	bool showAsMuted = muted;
 	bool showAsMonitored = monitoringType != OBS_MONITORING_TYPE_NONE;
 	bool showAsUnassigned = !muted && unassigned;
 
-	volMeter->setMuted((showAsMuted || showAsUnassigned) && !showAsMonitored);
+	volMeter->setMuted(showAsMuted);
 
 	// Qt doesn't support overriding the QPushButton icon using pseudo state selectors like :checked
 	// in QSS so we set a checked class selector on the button to be used instead.
@@ -694,7 +692,6 @@ void VolumeControl::updateMixerState()
 	utils->toggleClass(monitorButton, "checked", showAsMonitored);
 
 	utils->toggleClass(muteButton, "mute-unassigned", showAsUnassigned);
-
 	muteButton->setChecked(showAsMuted);
 	monitorButton->setChecked(showAsMonitored);
 
@@ -731,53 +728,6 @@ void VolumeControl::updateMixerState()
 	utils->repolish(monitorButton);
 
 	updateCategoryLabel();
-}
-
-void VolumeControl::handleMuteButton(bool mute)
-{
-	OBSSource source = OBSGetStrongRef(weakSource());
-	if (!source) {
-		return;
-	}
-
-	// The Mute and Monitor buttons in the volume mixer work as a pseudo quad-state toggle.
-	// Both buttons must be in their "off" state in order to actually process it as a mute.
-	// Otherwise, clicking "Mute" with monitoring enabled will toggle the monitoring type.
-	obs_monitoring_type monitoringType = obs_source_get_monitoring_type(source);
-
-	if (mute && monitoringType == OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT) {
-		setMonitoring(OBS_MONITORING_TYPE_MONITOR_ONLY);
-	} else if (!mute && monitoringType == OBS_MONITORING_TYPE_MONITOR_ONLY) {
-		setMonitoring(OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT);
-	} else {
-		setMuted(mute);
-	}
-}
-
-void VolumeControl::handleMonitorButton(bool enableMonitoring)
-{
-	OBSSource source = OBSGetStrongRef(weakSource());
-	if (!source) {
-		return;
-	}
-
-	// The Mute and Monitor buttons in the volume mixer work as a pseudo quad-state toggle.
-	// The source is only ever actually "Muted" if Monitoring is set to None.
-	obs_monitoring_type monitoringType = obs_source_get_monitoring_type(source);
-
-	bool muted = obs_source_muted(source);
-
-	if (!enableMonitoring) {
-		setMonitoring(OBS_MONITORING_TYPE_NONE);
-		if (monitoringType == OBS_MONITORING_TYPE_MONITOR_ONLY) {
-			setMuted(true);
-		}
-	} else if (enableMonitoring && muted) {
-		setMonitoring(OBS_MONITORING_TYPE_MONITOR_ONLY);
-		setMuted(false);
-	} else if (enableMonitoring && !muted) {
-		setMonitoring(OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT);
-	}
 }
 
 void VolumeControl::sliderChanged(int vol)

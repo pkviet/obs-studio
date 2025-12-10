@@ -87,7 +87,7 @@ private:
 	void updatePeakMeterType();
 
 	void setMuted(bool mute);
-	void setMonitoring(obs_monitoring_type type);
+	void setMonitoring(bool enableMonitoring);
 
 public slots:
 	void sourceActiveChanged(bool active);
@@ -99,8 +99,6 @@ private slots:
 	void renameSource();
 	void changeVolume();
 
-	void handleMuteButton(bool checked);
-	void handleMonitorButton(bool checked);
 	void sliderChanged(int vol);
 	void updateText();
 	void setName(QString name);
