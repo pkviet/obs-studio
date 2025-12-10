@@ -150,10 +150,7 @@ OBSAdvAudioCtrl::OBSAdvAudioCtrl(QGridLayout *, obs_source_t *source_) : source(
 	int idx;
 	if (obs_audio_monitoring_available()) {
 		monitoringType->addItem(QTStr("Basic.AdvAudio.Monitoring.None"), (int)OBS_MONITORING_TYPE_NONE);
-		monitoringType->addItem(QTStr("Basic.AdvAudio.Monitoring.MonitorOnly"),
-					(int)OBS_MONITORING_TYPE_MONITOR_ONLY);
-		monitoringType->addItem(QTStr("Basic.AdvAudio.Monitoring.Both"),
-					(int)OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT);
+		monitoringType->addItem(QTStr("Basic.AdvAudio.Monitoring.On"), (int)OBS_MONITORING_TYPE_MONITOR);
 		int mt = (int)obs_source_get_monitoring_type(source);
 		idx = monitoringType->findData(mt);
 		monitoringType->setCurrentIndex(idx);
@@ -521,7 +518,8 @@ void OBSAdvAudioCtrl::monitoringTypeChanged(int index)
 {
 	obs_monitoring_type prev = obs_source_get_monitoring_type(source);
 
-	obs_monitoring_type mt = (obs_monitoring_type)monitoringType->itemData(index).toInt();
+	// OBS_MONITORING_TYPE_MONITOR == 2 , OBS_MONITORING_TYPE_NONE == 0 so we have to multiply the UI indexes by 2
+	obs_monitoring_type mt = (obs_monitoring_type)(2 * index);
 	obs_source_set_monitoring_type(source, mt);
 
 	const char *type = nullptr;
@@ -530,11 +528,8 @@ void OBSAdvAudioCtrl::monitoringTypeChanged(int index)
 	case OBS_MONITORING_TYPE_NONE:
 		type = "none";
 		break;
-	case OBS_MONITORING_TYPE_MONITOR_ONLY:
-		type = "monitor only";
-		break;
-	case OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT:
-		type = "monitor and output";
+	case OBS_MONITORING_TYPE_MONITOR:
+		type = "monitor";
 		break;
 	}
 

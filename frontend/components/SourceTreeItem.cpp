@@ -50,6 +50,15 @@ SourceTreeItem::SourceTreeItem(SourceTree *tree_, OBSSceneItem sceneitem_) : tre
 	OBSBasic *main = OBSBasic::Get();
 	const char *id = obs_source_get_id(source);
 
+	// When removing OBS_MONITORING_TYPE_MONITOR_ONLY, we also set the source to !visible so that its audio is not
+	// mixed in obs outputs.
+	OBSDataAutoRelease sourcePrivData = obs_source_get_private_settings(source);
+	bool migrate_monitoring = obs_data_get_bool(sourcePrivData, "migrate_monitoring");
+	if (migrate_monitoring) {
+		obs_sceneitem_set_visible(sceneitem, false);
+		obs_data_unset_user_value(sourcePrivData, "migrate_monitoring");
+	}
+
 	bool sourceVisible = obs_sceneitem_visible(sceneitem);
 
 	if (tree->iconsVisible) {
