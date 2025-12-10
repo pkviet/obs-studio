@@ -25,7 +25,7 @@ static inline bool IsSourceUnassigned(obs_source_t *source)
 	uint32_t mixes = (obs_source_get_audio_mixers(source) & ((1 << MAX_AUDIO_MIXES) - 1));
 	obs_monitoring_type mt = obs_source_get_monitoring_type(source);
 
-	return mixes == 0 && mt != OBS_MONITORING_TYPE_MONITOR_ONLY;
+	return mixes == 0;
 }
 
 static void ShowUnassignedWarning(const char *name)

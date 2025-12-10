@@ -50,6 +50,15 @@ SourceTreeItem::SourceTreeItem(SourceTree *tree_, OBSSceneItem sceneitem_) : tre
 	OBSBasic *main = OBSBasic::Get();
 	const char *id = obs_source_get_id(source);
 
+	// When removing OBS_MONITORING_TYPE_MONITOR_ONLY, we also set the source to !visible so that its audio is not
+	// mixed in obs outputs.
+	OBSDataAutoRelease sourcePrivData = obs_source_get_private_settings(source);
+	bool migrate_monitoring = obs_data_get_bool(sourcePrivData, "migrate_monitoring");
+	if (migrate_monitoring) {
+		obs_sceneitem_set_visible(sceneitem, false);
+		obs_data_unset_user_value(sourcePrivData, "migrate_monitoring");
+	}
+
 	bool sourceVisible = obs_sceneitem_visible(sceneitem);
 
 	if (tree->iconsVisible) {
@@ -131,7 +140,8 @@ SourceTreeItem::SourceTreeItem(SourceTree *tree_, OBSSceneItem sceneitem_) : tre
 		const char *name = obs_source_get_name(scenesource);
 		const char *uuid = obs_source_get_uuid(scenesource);
 		obs_source_t *source = obs_sceneitem_get_source(sceneitem);
-
+		bool showing = obs_source_showing(source);
+		bool active = obs_source_active(source);
 		auto undo_redo = [](const std::string &uuid, int64_t id, bool val) {
 			OBSSourceAutoRelease s = obs_get_source_by_uuid(uuid.c_str());
 			obs_scene_t *sc = obs_group_or_scene_from_source(s);

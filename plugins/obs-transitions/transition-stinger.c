@@ -731,10 +731,7 @@ static obs_properties_t *stinger_properties(void *data)
 							       obs_module_text("AudioMonitoring"), OBS_COMBO_TYPE_LIST,
 							       OBS_COMBO_FORMAT_INT);
 	obs_property_list_add_int(monitor_list, obs_module_text("AudioMonitoring.None"), OBS_MONITORING_TYPE_NONE);
-	obs_property_list_add_int(monitor_list, obs_module_text("AudioMonitoring.MonitorOnly"),
-				  OBS_MONITORING_TYPE_MONITOR_ONLY);
-	obs_property_list_add_int(monitor_list, obs_module_text("AudioMonitoring.Both"),
-				  OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT);
+	obs_property_list_add_int(monitor_list, obs_module_text("AudioMonitoring.Both"), OBS_MONITORING_TYPE_MONITOR);
 
 	// audio fade settings
 	obs_property_t *audio_fade_style = obs_properties_add_list(

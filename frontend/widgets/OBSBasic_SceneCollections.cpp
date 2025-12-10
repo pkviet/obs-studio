@@ -989,10 +989,7 @@ static void LoadAudioDevice(const char *name, int channel, obs_data_t *parent)
 	obs_source_enum_filters(source, LogFilter, (void *)(intptr_t)1);
 	obs_monitoring_type monitoring_type = obs_source_get_monitoring_type(source);
 	if (monitoring_type != OBS_MONITORING_TYPE_NONE) {
-		const char *type = (monitoring_type == OBS_MONITORING_TYPE_MONITOR_ONLY) ? "monitor only"
-											 : "monitor and output";
-
-		blog(LOG_INFO, "    - monitoring: %s", type);
+		blog(LOG_INFO, "    - monitoring: enabled");
 	}
 }
 
@@ -1047,10 +1044,7 @@ static bool LogSceneItem(obs_scene_t *, obs_sceneitem_t *item, void *v_val)
 	obs_monitoring_type monitoring_type = obs_source_get_monitoring_type(source);
 
 	if (monitoring_type != OBS_MONITORING_TYPE_NONE) {
-		const char *type = (monitoring_type == OBS_MONITORING_TYPE_MONITOR_ONLY) ? "monitor only"
-											 : "monitor and output";
-
-		blog(LOG_INFO, "    %s- monitoring: %s", indent.c_str(), type);
+		blog(LOG_INFO, "    %s- monitoring: enabled", indent.c_str());
 	}
 	int child_indent = 1 + indent_count;
 	obs_source_enum_filters(source, LogFilter, (void *)(intptr_t)child_indent);

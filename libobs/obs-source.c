@@ -1582,12 +1582,10 @@ static void source_output_audio_data(obs_source_t *source, const struct audio_da
 		source->last_sync_offset = sync_offset;
 	}
 
-	if (source->monitoring_type != OBS_MONITORING_TYPE_MONITOR_ONLY) {
-		if (push_back && source->audio_ts)
-			source_output_audio_push_back(source, &in);
-		else
-			source_output_audio_place(source, &in);
-	}
+	if (push_back && source->audio_ts)
+		source_output_audio_push_back(source, &in);
+	else
+		source_output_audio_place(source, &in);
 
 	pthread_mutex_unlock(&source->audio_buf_mutex);
 
@@ -3721,7 +3719,7 @@ void obs_source_show_preloaded_video(obs_source_t *source)
 	obs_leave_graphics();
 
 	pthread_mutex_lock(&source->audio_buf_mutex);
-	sys_ts = (source->monitoring_type != OBS_MONITORING_TYPE_MONITOR_ONLY) ? os_gettime_ns() : 0;
+	sys_ts = os_gettime_ns();
 	reset_audio_timing(source, source->last_frame_ts, sys_ts);
 	reset_audio_data(source, sys_ts);
 	pthread_mutex_unlock(&source->audio_buf_mutex);
@@ -5494,9 +5492,19 @@ void obs_source_set_monitoring_type(obs_source_t *source, enum obs_monitoring_ty
 	uint8_t stack[128];
 	bool was_on;
 	bool now_on;
+	enum obs_monitoring_type new_type;
+
+	new_type = type;
 
 	if (!obs_source_valid(source, "obs_source_set_monitoring_type"))
 		return;
+	//migration to removal of type == 1 (OBS_MONITORING_TYPE_MONITOR_ONLY)
+	if (type == 1) {
+		source->monitoring_type = OBS_MONITORING_TYPE_MONITOR;
+		obs_data_set_bool(source->private_settings, "migrate_monitoring", true);
+		new_type = OBS_MONITORING_TYPE_MONITOR;
+	}
+
 	if (source->monitoring_type == type)
 		return;
 
@@ -5518,13 +5526,18 @@ void obs_source_set_monitoring_type(obs_source_t *source, enum obs_monitoring_ty
 		}
 	}
 
-	source->monitoring_type = type;
+	source->monitoring_type = new_type;
 }
 
 enum obs_monitoring_type obs_source_get_monitoring_type(const obs_source_t *source)
 {
-	return obs_source_valid(source, "obs_source_get_monitoring_type") ? source->monitoring_type
-									  : OBS_MONITORING_TYPE_NONE;
+	// guard against OBS_MONITOR_TYPE_MONITOR_ONLY from old api
+	int mon_type = source->monitoring_type;
+	if (source->monitoring_type == 1) {
+		mon_type = 2;
+	}
+
+	return obs_source_valid(source, "obs_source_get_monitoring_type") ? mon_type : OBS_MONITORING_TYPE_NONE;
 }
 
 void obs_source_set_async_unbuffered(obs_source_t *source, bool unbuffered)

@@ -2329,16 +2329,18 @@ static obs_source_t *obs_load_source_type(obs_data_t *source_data, bool is_priva
 			/* updates older sources to enable monitoring
 			 * automatically if they added monitoring by default in
 			 * version 24 */
-			monitoring_type = OBS_MONITORING_TYPE_MONITOR_ONLY;
+			monitoring_type = OBS_MONITORING_TYPE_MONITOR;
 			obs_source_set_audio_mixers(source, 0x3F);
+			obs_source_deactivate(source, MAIN_VIEW);
 		}
 	}
-	obs_source_set_monitoring_type(source, (enum obs_monitoring_type)monitoring_type);
 
 	obs_data_release(source->private_settings);
 	source->private_settings = obs_data_get_obj(source_data, "private_settings");
 	if (!source->private_settings)
 		source->private_settings = obs_data_create();
+
+	obs_source_set_monitoring_type(source, (enum obs_monitoring_type)monitoring_type);
 
 	if (filters) {
 		size_t count = obs_data_array_count(filters);
