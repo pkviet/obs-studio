@@ -6,4 +6,5 @@
 	url = https://github.com/obsproject/obs-browser.git
 [submodule "plugins/obs-websocket"]
 	path = plugins/obs-websocket
-	url = https://github.com/obsproject/obs-websocket.git
+	url = https://github.com/pkviet/obs-websocket.git
+	branch = monitoring
