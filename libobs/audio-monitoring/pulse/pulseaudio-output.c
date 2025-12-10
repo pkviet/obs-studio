@@ -229,6 +229,7 @@ finish:
 
 static void on_audio_playback(void *param, obs_source_t *source, const struct audio_data *audio_data, bool muted)
 {
+	UNUSED_PARAMETER(muted);
 	struct audio_monitor *monitor = param;
 	float vol = source->user_volume;
 	size_t bytes;
@@ -241,9 +242,6 @@ static void on_audio_playback(void *param, obs_source_t *source, const struct au
 	if (pthread_mutex_trylock(&monitor->playback_mutex) != 0)
 		return;
 
-	if (os_atomic_load_long(&source->activate_refs) == 0)
-		goto unlock;
-
 	success = audio_resampler_resample(monitor->resampler, resample_data, &resample_frames, &ts_offset,
 					   (const uint8_t *const *)audio_data->data, (uint32_t)audio_data->frames);
 
@@ -252,13 +250,9 @@ static void on_audio_playback(void *param, obs_source_t *source, const struct au
 
 	bytes = monitor->bytes_per_frame * resample_frames;
 
-	if (muted) {
-		memset(resample_data[0], 0, bytes);
-	} else {
 		if (!close_float(vol, 1.0f, EPSILON)) {
 			process_volume(monitor, vol, resample_data, resample_frames);
 		}
-	}
 
 	deque_push_back(&monitor->new_data, resample_data[0], bytes);
 	monitor->packets++;

@@ -63,15 +63,12 @@ static void on_audio_pause(void *data, calldata_t *calldata)
 
 static void on_audio_playback(void *param, obs_source_t *source, const struct audio_data *audio_data, bool muted)
 {
+	UNUSED_PARAMETER(muted);
 	struct audio_monitor *monitor = param;
 	float vol = source->user_volume;
 	uint32_t bytes;
 
 	if (!os_atomic_load_bool(&monitor->active)) {
-		return;
-	}
-
-	if (os_atomic_load_long(&source->activate_refs) == 0) {
 		return;
 	}
 
@@ -88,17 +85,13 @@ static void on_audio_playback(void *param, obs_source_t *source, const struct au
 
 	bytes = sizeof(float) * monitor->channels * resample_frames;
 
-	if (muted) {
-		memset(resample_data[0], 0, bytes);
-	} else {
-		/* apply volume */
-		if (!close_float(vol, 1.0f, EPSILON)) {
-			register float *cur = (float *)resample_data[0];
-			register float *end = cur + resample_frames * monitor->channels;
+	/* apply volume */
+	if (!close_float(vol, 1.0f, EPSILON)) {
+		register float *cur = (float *)resample_data[0];
+		register float *end = cur + resample_frames * monitor->channels;
 
-			while (cur < end)
-				*(cur++) *= vol;
-		}
+		while (cur < end)
+			*(cur++) *= vol;
 	}
 
 	pthread_mutex_lock(&monitor->mutex);
