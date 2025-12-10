@@ -1352,8 +1352,7 @@ EXPORT enum obs_deinterlace_field_order obs_source_get_deinterlace_field_order(c
 
 enum obs_monitoring_type {
 	OBS_MONITORING_TYPE_NONE,
-	OBS_MONITORING_TYPE_MONITOR_ONLY,
-	OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT,
+	OBS_MONITORING_TYPE_MONITOR=2,
 };
 
 EXPORT void obs_source_set_monitoring_type(obs_source_t *source, enum obs_monitoring_type type);
