@@ -976,6 +976,61 @@ static inline void LogEncoders()
 	list_encoders(OBS_ENCODER_AUDIO);
 }
 
+#ifdef WIN32
+static void SetMonitoringDevice(config_t *config, const char *device_name, const char *device_id)
+{
+	// Windows updates can change the GUID of audio devices; we try to retrieve the new id manually which assumes
+	// Windows kept the same device name. If the user has several identical devices, we keep previous behaviour.
+	struct MonitoringDevice {
+		std::string name;
+		std::string id;
+	};
+
+	std::vector<MonitoringDevice> monitoring_devices;
+	int match_count = 0;
+	int match_index = -1;
+
+	auto enum_monitoring_device_cb = [](void *data, const char *name, const char *id) {
+		auto *vec = static_cast<std::vector<MonitoringDevice> *>(data);
+		vec->push_back({name ? name : "", id ? id : ""});
+		return true;
+	};
+
+	const char *final_id = device_id;
+	const char *log_msg = "Audio monitoring device";
+	obs_enum_audio_monitoring_devices(enum_monitoring_device_cb, &monitoring_devices);
+
+	// If the device id is found, we set the device to monitoring as before.
+	for (const auto &d : monitoring_devices) {
+		if (strcmp(device_id, d.id.c_str()) == 0) {
+			goto apply;
+		}
+	}
+
+	// If the device id is not found, we try to find a device with the same name (and accept partial matches since
+	// a change of USB port can cause Windows to append a number).
+	for (size_t i = 0; i < monitoring_devices.size(); i++) {
+		if (strncmp(device_name, monitoring_devices[i].name.c_str(), strlen(device_name)) == 0) {
+			match_count++;
+			match_index = (int)i;
+		}
+	}
+
+	// We move to the new id only if there's a single device with matching name to avoid breaking setups with
+	// several identical devices. These power-users will have to sort their mess on their own!
+	if (match_count == 1) {
+		final_id = monitoring_devices[match_index].id.c_str();
+		log_msg = "Audio monitoring device reassociated";
+		config_set_string(config, "Audio", "MonitoringDeviceId", final_id);
+		config_save_safe(config, "tmp", nullptr);
+	}
+
+apply:
+	obs_set_audio_monitoring_device(device_name, final_id);
+	blog(LOG_INFO, "%s:\n\tname: %s\n\tid: %s", log_msg, device_name, final_id);
+}
+#endif
+
 void OBSBasic::OBSInit()
 {
 	ProfileScope("OBSBasic::OBSInit");
@@ -1005,10 +1060,12 @@ void OBSBasic::OBSInit()
 	if (obs_audio_monitoring_available()) {
 		const char *device_name = config_get_string(activeConfiguration, "Audio", "MonitoringDeviceName");
 		const char *device_id = config_get_string(activeConfiguration, "Audio", "MonitoringDeviceId");
-
+#ifdef WIN32
+		SetMonitoringDevice(activeConfiguration, device_name, device_id);
+#else
 		obs_set_audio_monitoring_device(device_name, device_id);
-
 		blog(LOG_INFO, "Audio monitoring device:\n\tname: %s\n\tid: %s", device_name, device_id);
+#endif
 	}
 
 	InitOBSCallbacks();
